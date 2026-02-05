@@ -1,0 +1,19 @@
+# Render.com deployment configuration
+# This deploys the whiteboard app as a single web service
+# serving both the frontend (static) and backend (Socket.io)
+
+services:
+  - type: web
+    name: studysync
+    runtime: node
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+    healthCheckPath: /
