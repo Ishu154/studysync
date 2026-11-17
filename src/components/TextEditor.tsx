@@ -30,7 +30,8 @@ const TextEditor: React.FC<TextEditorProps> = ({ elementId, onComplete }) => {
     selectedColor,
   } = useSelector((state: RootState) => state.whiteboard.canvas);
 
-  const { emitElementUpdated } = useSocket("room-1");
+  const roomId = useSelector((state: RootState) => state.whiteboard.roomId);
+  const { emitElementUpdated } = useSocket(roomId || "room-1");
 
   // Auto-resize textarea
   useEffect(() => {

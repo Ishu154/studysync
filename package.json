@@ -8,24 +8,33 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "server": "node server/index.js",
-    "start": "node server/index.js"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "benchmark": "tsx benchmark/run-benchmark.ts",
+    "server": "tsx server/index.js",
+    "start": "tsx server/index.js"
   },
   "dependencies": {
+    "@mlc-ai/web-llm": "^0.2.88",
     "@reduxjs/toolkit": "^2.0.1",
+    "@types/dagre": "^0.7.54",
     "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.21",
+    "dagre": "^0.8.5",
     "express": "^4.18.2",
     "lucide-react": "^0.344.0",
+    "postcss": "^8.5.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-redux": "^9.0.4",
     "socket.io": "^4.7.5",
     "socket.io-client": "^4.7.5",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.23.15",
     "uuid": "^9.0.1",
     "vite": "^6.3.5",
-    "tailwindcss": "^3.4.17",
-    "postcss": "^8.5.6",
-    "autoprefixer": "^10.4.21"
+    "vitest": "^5.1.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",

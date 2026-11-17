@@ -53,7 +53,17 @@ const initialState: WhiteboardState = {
     saveProgress: 0,
     isSaving: false,
     videoPanelOpen: false,
+    studyBotPanelOpen: false,
   },
+  ai: {
+    status: 'idle',
+    providerMode: 'auto',
+    activeBackend: 'cloud',
+    downloadProgress: null,
+    lastCommandId: null,
+    statusMessage: null,
+  },
+  chatMessages: [],
 };
 
 const whiteboardSlice = createSlice({
@@ -202,6 +212,35 @@ const whiteboardSlice = createSlice({
     setVideoPanelOpen: (state, action: PayloadAction<boolean>) => {
       state.ui.videoPanelOpen = action.payload;
     },
+    toggleStudyBotPanel: (state) => {
+      state.ui.studyBotPanelOpen = !state.ui.studyBotPanelOpen;
+    },
+    setStudyBotPanelOpen: (state, action: PayloadAction<boolean>) => {
+      state.ui.studyBotPanelOpen = action.payload;
+    },
+    setAIStatus: (state, action: PayloadAction<{ status: 'idle' | 'thinking' | 'drawing' | 'error'; commandId?: string; message?: string }>) => {
+      state.ai.status = action.payload.status;
+      if (action.payload.commandId) {
+        state.ai.lastCommandId = action.payload.commandId;
+      }
+      state.ai.statusMessage = action.payload.message ?? null;
+    },
+    setProviderMode: (state, action: PayloadAction<'cloud' | 'local' | 'auto'>) => {
+      state.ai.providerMode = action.payload;
+    },
+    setActiveBackend: (state, action: PayloadAction<'cloud' | 'local'>) => {
+      state.ai.activeBackend = action.payload;
+    },
+    setDownloadProgress: (state, action: PayloadAction<number | null>) => {
+      state.ai.downloadProgress = action.payload;
+    },
+    addChatMessage: (state, action: PayloadAction<{ id: string; roomId: string; senderId: string; senderName: string; text: string; timestamp: number; isSystem?: boolean }>) => {
+      state.chatMessages.push(action.payload);
+      // Keep only last 100 messages in state
+      if (state.chatMessages.length > 100) {
+        state.chatMessages = state.chatMessages.slice(-100);
+      }
+    },
     // Drag and Drop Actions
     setSelectedElements: (state, action: PayloadAction<string[]>) => {
       state.canvas.selectedElements = action.payload;
@@ -236,11 +275,18 @@ const whiteboardSlice = createSlice({
 
       // Move all selected elements
       state.elements.forEach(element => {
-        if (element.isSelected) {
+        if (element.isSelected || state.canvas.selectedElements.includes(element.id)) {
           element.points = element.points.map(point => ({
             x: point.x + deltaX,
             y: point.y + deltaY
           }));
+          if (element.bounds) {
+            element.bounds = {
+              ...element.bounds,
+              x: element.bounds.x + deltaX,
+              y: element.bounds.y + deltaY,
+            };
+          }
           element.updated = Date.now();
         }
       });
@@ -272,6 +318,27 @@ const whiteboardSlice = createSlice({
     setElements: (state, action: PayloadAction<DrawingElement[]>) => {
       state.elements = action.payload;
       state.history.present = [...action.payload];
+    },
+    addElementsBatch: (state, action: PayloadAction<DrawingElement[]>) => {
+      if (action.payload.length === 0) return;
+      state.history.past.push([...state.elements]);
+      state.history.future = [];
+      state.elements.push(...action.payload);
+      state.history.present = [...state.elements];
+    },
+    deleteElementsByCommandId: (state, action: PayloadAction<string>) => {
+      const commandId = action.payload;
+      if (!commandId) return;
+      const matching = state.elements.filter(el => el.commandId === commandId);
+      if (matching.length === 0) return;
+
+      state.history.past.push([...state.elements]);
+      state.history.future = [];
+      state.elements = state.elements.filter(el => el.commandId !== commandId);
+      state.history.present = [...state.elements];
+      state.canvas.selectedElements = state.canvas.selectedElements.filter(
+        id => state.elements.some(el => el.id === id)
+      );
     },
     undo: (state) => {
       if (state.history.past.length > 0) {
@@ -351,6 +418,13 @@ export const {
   setIsSaving,
   toggleVideoPanel,
   setVideoPanelOpen,
+  toggleStudyBotPanel,
+  setStudyBotPanelOpen,
+  setAIStatus,
+  setProviderMode,
+  setActiveBackend,
+  setDownloadProgress,
+  addChatMessage,
   setSelectedElements,
   setIsDragging,
   setDragOffset,
@@ -360,6 +434,8 @@ export const {
   updateElement,
   deleteElement,
   setElements,
+  addElementsBatch,
+  deleteElementsByCommandId,
   undo,
   redo,
   clearTemporaryElements,

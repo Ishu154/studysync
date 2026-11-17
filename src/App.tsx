@@ -10,6 +10,7 @@ import TopBar from './components/TopBar';
 import BottomBar from './components/BottomBar';
 import ConnectionStatus from './components/ConnectionStatus';
 import RoomSelectionModal from './components/RoomSelectionModal';
+import StudyBotPanel from './components/StudyBotPanel';
 import { User } from './types';
 import { useSelector } from 'react-redux';
 import { RootState } from './store';
@@ -134,6 +135,7 @@ const WhiteboardApp: React.FC = () => {
         </>
       )}
       <ConnectionStatus />
+      <StudyBotPanel />
 
       {/* Room Selection Modal */}
       <RoomSelectionModal

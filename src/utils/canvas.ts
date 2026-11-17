@@ -448,6 +448,16 @@ export const isPointInElement = (point: Point, element: DrawingElement, customTo
   
   const tolerance = customTolerance !== undefined ? customTolerance : Math.max(element.strokeWidth || 2, 10); // Minimum 10px hit area
   
+  // Fast path for elements with explicit bounds (excluding circle which uses radial distance)
+  if (element.bounds && element.type !== 'circle') {
+    if (point.x >= element.bounds.x - tolerance && 
+        point.x <= element.bounds.x + element.bounds.width + tolerance &&
+        point.y >= element.bounds.y - tolerance && 
+        point.y <= element.bounds.y + element.bounds.height + tolerance) {
+      return true;
+    }
+  }
+
   switch (element.type) {
     case 'rectangle':
       if (element.points.length >= 2) {
@@ -465,7 +475,7 @@ export const isPointInElement = (point: Point, element: DrawingElement, customTo
         const [center, edge] = element.points;
         const radius = Math.sqrt(Math.pow(edge.x - center.x, 2) + Math.pow(edge.y - center.y, 2));
         const distance = Math.sqrt(Math.pow(point.x - center.x, 2) + Math.pow(point.y - center.y, 2));
-        return Math.abs(distance - radius) <= tolerance;
+        return distance <= radius + tolerance;
       }
       break;
       
@@ -482,7 +492,7 @@ export const isPointInElement = (point: Point, element: DrawingElement, customTo
     case 'diamond':
     case 'star':
     case 'heart':
-    case 'hexagon':
+    case 'hexagon': {
       // For complex shapes, use bounding box with tolerance
       const bounds = getBoundingBox(element.points);
       if (bounds) {
@@ -492,18 +502,29 @@ export const isPointInElement = (point: Point, element: DrawingElement, customTo
                point.y <= bounds.y + bounds.height + tolerance;
       }
       break;
+    }
       
-    case 'text':
+    case 'text': {
       if (element.points.length > 0 && element.text) {
         const textPoint = element.points[0];
         const fontSize = element.fontSize || 16;
         const textWidth = (element.text.length * fontSize * 0.6); // Approximate text width
-        return point.x >= textPoint.x - tolerance &&
-               point.x <= textPoint.x + textWidth + tolerance &&
+        let minX = textPoint.x;
+        let maxX = textPoint.x + textWidth;
+        if (element.textAlign === 'center') {
+          minX = textPoint.x - textWidth / 2;
+          maxX = textPoint.x + textWidth / 2;
+        } else if (element.textAlign === 'right') {
+          minX = textPoint.x - textWidth;
+          maxX = textPoint.x;
+        }
+        return point.x >= minX - tolerance &&
+               point.x <= maxX + tolerance &&
                point.y >= textPoint.y - fontSize - tolerance &&
                point.y <= textPoint.y + tolerance;
       }
       break;
+    }
       
     case 'pen':
     case 'pencil':
@@ -533,7 +554,7 @@ export const distanceToLineSegment = (point: Point, start: Point, end: Point): n
     return Math.sqrt(A * A + B * B);
   }
   
-  let param = dot / lenSq;
+  const param = dot / lenSq;
   
   let xx, yy;
   
@@ -611,26 +632,152 @@ export const drawDragPreview = (
   elements: DrawingElement[],
   previewPosition: Point,
   zoom: number,
-  pan: Point
+  pan: Point,
+  selectedIds?: string[]
 ) => {
   ctx.save();
   ctx.globalAlpha = 0.5;
   
+  const isTarget = (el: DrawingElement) =>
+    el.isSelected || (selectedIds ? selectedIds.includes(el.id) : false);
+
   elements.forEach(element => {
-    if (element.isSelected) {
-      // Create a preview element with offset position
-      const previewElement = {
+    if (isTarget(element)) {
+      // Create a preview element with offset position and bounds
+      const previewElement: DrawingElement = {
         ...element,
         points: element.points.map(point => ({
           x: point.x + previewPosition.x,
           y: point.y + previewPosition.y
-        }))
+        })),
+        bounds: element.bounds ? {
+          ...element.bounds,
+          x: element.bounds.x + previewPosition.x,
+          y: element.bounds.y + previewPosition.y
+        } : undefined
       };
       
       drawElement(ctx, previewElement, zoom, pan);
     }
   });
   
+  ctx.restore();
+};
+
+export const getElementsBoundingBox = (
+  elements: DrawingElement[]
+): { x: number; y: number; width: number; height: number } | null => {
+  if (!elements || elements.length === 0) return null;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  let hasValid = false;
+
+  for (const el of elements) {
+    if (el.bounds) {
+      minX = Math.min(minX, el.bounds.x);
+      minY = Math.min(minY, el.bounds.y);
+      maxX = Math.max(maxX, el.bounds.x + el.bounds.width);
+      maxY = Math.max(maxY, el.bounds.y + el.bounds.height);
+      hasValid = true;
+    }
+    for (const p of el.points) {
+      minX = Math.min(minX, p.x);
+      minY = Math.min(minY, p.y);
+      maxX = Math.max(maxX, p.x);
+      maxY = Math.max(maxY, p.y);
+      hasValid = true;
+    }
+  }
+
+  if (!hasValid || !isFinite(minX) || !isFinite(minY)) return null;
+
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
+};
+
+export const drawGroupSelectionBox = (
+  ctx: CanvasRenderingContext2D,
+  elements: DrawingElement[],
+  zoom: number,
+  pan: Point,
+  offset?: Point | null
+) => {
+  const bounds = getElementsBoundingBox(elements);
+  if (!bounds) return;
+
+  const dx = offset ? offset.x : 0;
+  const dy = offset ? offset.y : 0;
+  const x = bounds.x + dx;
+  const y = bounds.y + dy;
+
+  ctx.save();
+  ctx.scale(zoom, zoom);
+  ctx.translate(pan.x, pan.y);
+
+  const padding = 12;
+  const boxX = x - padding;
+  const boxY = y - padding;
+  const boxW = bounds.width + padding * 2;
+  const boxH = bounds.height + padding * 2;
+
+  // Background tint
+  ctx.fillStyle = 'rgba(99, 102, 241, 0.05)';
+  ctx.fillRect(boxX, boxY, boxW, boxH);
+
+  // Dashed border
+  ctx.strokeStyle = '#6366f1';
+  ctx.lineWidth = 2 / zoom;
+  ctx.setLineDash([6 / zoom, 4 / zoom]);
+  ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+  // Corner handles
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#6366f1';
+  const handleSize = 7 / zoom;
+  const corners = [
+    { x: boxX, y: boxY },
+    { x: boxX + boxW, y: boxY },
+    { x: boxX, y: boxY + boxH },
+    { x: boxX + boxW, y: boxY + boxH },
+  ];
+  corners.forEach(corner => {
+    ctx.fillRect(
+      corner.x - handleSize / 2,
+      corner.y - handleSize / 2,
+      handleSize,
+      handleSize
+    );
+  });
+
+  // Group label badge at top-left
+  const isAiDiagram = elements.some(el => Boolean(el.commandId));
+  const labelText = isAiDiagram
+    ? `✦ Diagram Group (${elements.length}) • Drag to move`
+    : `Group (${elements.length}) • Drag to move`;
+
+  const fontSize = Math.max(10, 11 / zoom);
+  ctx.font = `600 ${fontSize}px sans-serif`;
+  const textMetrics = ctx.measureText(labelText);
+  const badgePaddingX = 6 / zoom;
+  const badgeHeight = 18 / zoom;
+  const badgeWidth = textMetrics.width + badgePaddingX * 2;
+  const badgeX = boxX;
+  const badgeY = boxY - badgeHeight - (2 / zoom);
+
+  ctx.fillStyle = '#4f46e5';
+  ctx.fillRect(badgeX, badgeY, badgeWidth, badgeHeight);
+
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(labelText, badgeX + badgePaddingX, badgeY + badgeHeight / 2);
+
   ctx.restore();
 };
 

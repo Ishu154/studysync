@@ -1,0 +1,143 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 580" width="1000" height="580" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="cloudGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3B82F6"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="localGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#A855F7"/>
+      <stop offset="100%" stop-color="#7E22CE"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="100%" height="100%" fill="#0F172A" rx="16"/>
+
+  <!-- Border -->
+  <rect width="996" height="576" x="2" y="2" fill="none" stroke="#334155" stroke-width="2" rx="14"/>
+
+  <!-- Title & Header -->
+  <text x="40" y="48" fill="#F8FAFC" font-size="22" font-weight="700">StudyBot Provider Benchmark: Cloud (gpt-4o-mini) vs Local (WebLLM 0.5B)</text>
+  <text x="40" y="74" fill="#94A3B8" font-size="13">Evaluation of 40 structured diagram prompts across Binary Tree, Flowchart, Mind Map, State Machine, and ER Diagrams</text>
+
+  <!-- Legend -->
+  <rect x="730" y="36" width="16" height="16" fill="url(#cloudGrad)" rx="3"/>
+  <text x="754" y="49" fill="#E2E8F0" font-size="13" font-weight="600">Cloud (gpt-4o-mini)</text>
+  <rect x="730" y="62" width="16" height="16" fill="url(#localGrad)" rx="3"/>
+  <text x="754" y="75" fill="#E2E8F0" font-size="13" font-weight="600">Local (Qwen2.5-0.5B)</text>
+
+  <!-- STAT CARDS (Top) -->
+  <!-- Card 1: Schema Validity -->
+  <g transform="translate(40, 100)" filter="url(#shadow)">
+    <rect width="210" height="85" fill="#1E293B" rx="10" stroke="#334155"/>
+    <text x="16" y="26" fill="#94A3B8" font-size="12" font-weight="500">SCHEMA VALIDITY</text>
+    <text x="16" y="54" fill="#3B82F6" font-size="20" font-weight="700">97.5% <tspan fill="#64748B" font-size="13" font-weight="400">Cloud</tspan></text>
+    <text x="16" y="73" fill="#A855F7" font-size="14" font-weight="600">95% <tspan fill="#64748B" font-size="12" font-weight="400">Local</tspan></text>
+  </g>
+
+  <!-- Card 2: TTFO Latency -->
+  <g transform="translate(275, 100)" filter="url(#shadow)">
+    <rect width="210" height="85" fill="#1E293B" rx="10" stroke="#334155"/>
+    <text x="16" y="26" fill="#94A3B8" font-size="12" font-weight="500">FIRST OP LATENCY (TTFO)</text>
+    <text x="16" y="54" fill="#A855F7" font-size="20" font-weight="700">259 ms <tspan fill="#64748B" font-size="13" font-weight="400">Local</tspan></text>
+    <text x="16" y="73" fill="#3B82F6" font-size="14" font-weight="600">382 ms <tspan fill="#64748B" font-size="12" font-weight="400">Cloud</tspan></text>
+  </g>
+
+  <!-- Card 3: Cost -->
+  <g transform="translate(510, 100)" filter="url(#shadow)">
+    <rect width="210" height="85" fill="#1E293B" rx="10" stroke="#334155"/>
+    <text x="16" y="26" fill="#94A3B8" font-size="12" font-weight="500">COST PER 1,000 DIAGRAMS</text>
+    <text x="16" y="54" fill="#10B981" font-size="20" font-weight="700">$0.00 <tspan fill="#64748B" font-size="13" font-weight="400">Local</tspan></text>
+    <text x="16" y="73" fill="#3B82F6" font-size="14" font-weight="600">$0.30 <tspan fill="#64748B" font-size="12" font-weight="400">Cloud</tspan></text>
+  </g>
+
+  <!-- Card 4: Memory -->
+  <g transform="translate(745, 100)" filter="url(#shadow)">
+    <rect width="210" height="85" fill="#1E293B" rx="10" stroke="#334155"/>
+    <text x="16" y="26" fill="#94A3B8" font-size="12" font-weight="500">CLIENT RESOURCE FOOTPRINT</text>
+    <text x="16" y="54" fill="#3B82F6" font-size="20" font-weight="700">0 MB <tspan fill="#64748B" font-size="13" font-weight="400">Cloud</tspan></text>
+    <text x="16" y="73" fill="#A855F7" font-size="14" font-weight="600">850 MB VRAM <tspan fill="#64748B" font-size="12" font-weight="400">Local</tspan></text>
+  </g>
+
+  <!-- BAR CHART: CORRECTNESS BY DIFFICULTY -->
+  <g transform="translate(40, 220)">
+    <rect width="915" height="320" fill="#1E293B" rx="12" stroke="#334155"/>
+    <text x="24" y="34" fill="#F1F5F9" font-size="16" font-weight="600">Correctness &amp; Accuracy Score by Difficulty Tier (%)</text>
+
+    <!-- Grid lines -->
+    
+        <line x1="60" y1="60" x2="880" y2="60" stroke="#334155" stroke-dasharray="4,4"/>
+        <text x="35" y="64" fill="#64748B" font-size="11" text-anchor="middle">100%</text>
+      
+        <line x1="60" y1="107.5" x2="880" y2="107.5" stroke="#334155" stroke-dasharray="4,4"/>
+        <text x="35" y="111.5" fill="#64748B" font-size="11" text-anchor="middle">75%</text>
+      
+        <line x1="60" y1="155" x2="880" y2="155" stroke="#334155" stroke-dasharray="4,4"/>
+        <text x="35" y="159" fill="#64748B" font-size="11" text-anchor="middle">50%</text>
+      
+        <line x1="60" y1="202.5" x2="880" y2="202.5" stroke="#334155" stroke-dasharray="4,4"/>
+        <text x="35" y="206.5" fill="#64748B" font-size="11" text-anchor="middle">25%</text>
+      
+        <line x1="60" y1="250" x2="880" y2="250" stroke="#334155" stroke-dasharray="4,4"/>
+        <text x="35" y="254" fill="#64748B" font-size="11" text-anchor="middle">0%</text>
+      
+
+    <!-- Bars -->
+    
+        <g>
+          <!-- Cloud bar -->
+          <rect x="110" y="61.52000000000001" width="38" height="188.48" fill="url(#cloudGrad)" rx="5"/>
+          <text x="129" y="55.52000000000001" fill="#93C5FD" font-size="12" font-weight="700" text-anchor="middle">99.2%</text>
+
+          <!-- Local bar -->
+          <rect x="154" y="61.52000000000001" width="38" height="188.48" fill="url(#localGrad)" rx="5"/>
+          <text x="173" y="55.52000000000001" fill="#D8B4FE" font-size="12" font-weight="700" text-anchor="middle">99.2%</text>
+
+          <!-- Group label -->
+          <text x="151" y="278" fill="#E2E8F0" font-size="13" font-weight="600" text-anchor="middle">Easy (10)</text>
+        </g>
+      
+        <g>
+          <!-- Cloud bar -->
+          <rect x="310" y="68.16999999999999" width="38" height="181.83" fill="url(#cloudGrad)" rx="5"/>
+          <text x="329" y="62.16999999999999" fill="#93C5FD" font-size="12" font-weight="700" text-anchor="middle">95.7%</text>
+
+          <!-- Local bar -->
+          <rect x="354" y="70.07" width="38" height="179.93" fill="url(#localGrad)" rx="5"/>
+          <text x="373" y="64.07" fill="#D8B4FE" font-size="12" font-weight="700" text-anchor="middle">94.7%</text>
+
+          <!-- Group label -->
+          <text x="351" y="278" fill="#E2E8F0" font-size="13" font-weight="600" text-anchor="middle">Medium (15)</text>
+        </g>
+      
+        <g>
+          <!-- Cloud bar -->
+          <rect x="510" y="69.69" width="38" height="180.31" fill="url(#cloudGrad)" rx="5"/>
+          <text x="529" y="63.69" fill="#93C5FD" font-size="12" font-weight="700" text-anchor="middle">94.9%</text>
+
+          <!-- Local bar -->
+          <rect x="554" y="79.57" width="38" height="170.43" fill="url(#localGrad)" rx="5"/>
+          <text x="573" y="73.57" fill="#D8B4FE" font-size="12" font-weight="700" text-anchor="middle">89.7%</text>
+
+          <!-- Group label -->
+          <text x="551" y="278" fill="#E2E8F0" font-size="13" font-weight="600" text-anchor="middle">Hard (15)</text>
+        </g>
+      
+        <g>
+          <!-- Cloud bar -->
+          <rect x="710" y="67.03" width="38" height="182.97" fill="url(#cloudGrad)" rx="5"/>
+          <text x="729" y="61.03" fill="#93C5FD" font-size="12" font-weight="700" text-anchor="middle">96.3%</text>
+
+          <!-- Local bar -->
+          <rect x="754" y="71.58999999999997" width="38" height="178.41000000000003" fill="url(#localGrad)" rx="5"/>
+          <text x="773" y="65.58999999999997" fill="#D8B4FE" font-size="12" font-weight="700" text-anchor="middle">93.9%</text>
+
+          <!-- Group label -->
+          <text x="751" y="278" fill="#E2E8F0" font-size="13" font-weight="600" text-anchor="middle">Overall (40)</text>
+        </g>
+      
+  </g>
+</svg>

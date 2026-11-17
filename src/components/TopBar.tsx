@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { Users, Share, Download, Undo, Redo, X, Copy, Check, Palette, ChevronDown, Save, Maximize, Minimize, Settings, LogOut, Video, VideoOff } from 'lucide-react';
+import { Users, Share, Download, Undo, Redo, X, Copy, Check, Palette, ChevronDown, Save, Maximize, Minimize, Settings, LogOut, Video, VideoOff, Bot, RotateCcw } from 'lucide-react';
 import { RootState } from '../store';
 import {
   setBackgroundType,
@@ -8,8 +8,10 @@ import {
   undo,
   redo,
   setRoomId,
-  toggleVideoPanel
+  toggleVideoPanel,
+  toggleStudyBotPanel
 } from '../store/whiteboardSlice';
+import { useSocket } from '../hooks/useSocket';
 import { BackgroundType } from '../types';
 
 interface TopBarProps {
@@ -37,6 +39,10 @@ const TopBar: React.FC<TopBarProps> = ({ onChangeRoom }) => {
   } = useSelector((state: RootState) => state.whiteboard.canvas);
   const { past, future } = useSelector((state: RootState) => state.whiteboard.history);
   const videoPanelOpen = useSelector((state: RootState) => state.whiteboard.ui?.videoPanelOpen ?? false);
+  const studyBotPanelOpen = useSelector((state: RootState) => state.whiteboard.ui?.studyBotPanelOpen ?? false);
+  const aiState = useSelector((state: RootState) => state.whiteboard.ai);
+
+  const { undoAI } = useSocket(roomId || 'room-1');
 
   const backgroundOptions = [
     { type: 'white' as BackgroundType, label: 'White', color: '#FFFFFF' },
@@ -542,6 +548,17 @@ const TopBar: React.FC<TopBarProps> = ({ onChangeRoom }) => {
           >
             <Redo size={16} />
           </button>
+
+          {aiState.lastCommandId && (
+            <button
+              onClick={() => undoAI()}
+              className="p-1 px-2 text-xs text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition-all duration-200 flex items-center gap-1 font-medium ml-1"
+              title="Undo last AI diagram"
+            >
+              <RotateCcw size={13} />
+              <span>Undo AI</span>
+            </button>
+          )}
         </div>
 
         {/* Background Controls */}
@@ -685,6 +702,28 @@ const TopBar: React.FC<TopBarProps> = ({ onChangeRoom }) => {
             {videoPanelOpen ? <VideoOff size={16} /> : <Video size={16} />}
             <span className="text-xs font-medium hidden sm:inline">
               {videoPanelOpen ? 'Leave' : 'Study Room'}
+            </span>
+          </button>
+
+          {/* StudyBot Button */}
+          <button
+            onClick={() => dispatch(toggleStudyBotPanel())}
+            className={`p-2 rounded-lg transition-all duration-200 flex items-center gap-1.5 ${
+              studyBotPanelOpen
+                ? 'bg-purple-600 text-white hover:bg-purple-700 shadow-sm'
+                : aiState.status === 'thinking' || aiState.status === 'drawing'
+                ? 'bg-purple-100 text-purple-700 animate-pulse border border-purple-300'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+            title="Ask StudyBot AI to draw diagrams"
+          >
+            <Bot size={16} />
+            <span className="text-xs font-medium hidden sm:inline">
+              {aiState.status === 'thinking'
+                ? 'Thinking...'
+                : aiState.status === 'drawing'
+                ? 'Drawing...'
+                : 'StudyBot'}
             </span>
           </button>
         </div>

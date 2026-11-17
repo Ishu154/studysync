@@ -32,6 +32,7 @@ export interface DrawingElement {
   isTemporary?: boolean; // For laser pointer
   isSelected?: boolean; // For drag and drop
   isDragging?: boolean; // For drag state
+  commandId?: string; // Grouping ID for AI commands and Undo AI
 }
 
 export interface User {
@@ -103,7 +104,25 @@ export interface WhiteboardState {
     saveProgress: number;
     isSaving: boolean;
     videoPanelOpen: boolean;
+    studyBotPanelOpen: boolean;
   };
+  ai: {
+    status: 'idle' | 'thinking' | 'drawing' | 'error';
+    providerMode: 'cloud' | 'local' | 'auto';
+    activeBackend: 'cloud' | 'local';
+    downloadProgress: number | null;
+    lastCommandId: string | null;
+    statusMessage: string | null;
+  };
+  chatMessages: Array<{
+    id: string;
+    roomId: string;
+    senderId: string;
+    senderName: string;
+    text: string;
+    timestamp: number;
+    isSystem?: boolean;
+  }>;
 }
 
 export type DrawingTool = 'select' | 'pen' | 'pencil' | 'brush' | 'eraser' | 'rectangle' | 'circle' | 'line' | 'arrow' | 'text' | 'triangle' | 'diamond' | 'star' | 'heart' | 'hexagon';
@@ -116,4 +135,7 @@ export interface SocketEvents {
   'element-updated': (element: DrawingElement) => void;
   'element-deleted': (elementId: string) => void;
   'elements-batch': (elements: DrawingElement[]) => void;
+  'ai:status': (payload: { roomId: string; status: 'idle' | 'thinking' | 'drawing' | 'error'; commandId?: string; message?: string; progress?: number }) => void;
+  'chat:message': (message: { id: string; roomId: string; senderId: string; senderName: string; text: string; timestamp: number; isSystem?: boolean }) => void;
+  'board:op': (data: { roomId: string; op: unknown; commandId: string; isLast?: boolean }) => void;
 }

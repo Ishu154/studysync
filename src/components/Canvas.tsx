@@ -5,9 +5,6 @@ import { RootState } from '../store';
 import {
   setIsDrawing,
   setCurrentPath,
-  addElement,
-  updateElement,
-  deleteElement,
   setZoom,
   setPan,
   setIsEditingText,
@@ -21,6 +18,7 @@ import {
 } from '../store/whiteboardSlice';
 import { useSocket } from '../hooks/useSocket';
 import { DrawingElement, Point } from '../types';
+import { applyOp, CanvasOp } from '../shared/applyOp';
 import { 
   getCanvasPoint, 
   snapToGrid, 
@@ -30,6 +28,7 @@ import {
   drawBackground,
   isPointInElement,
   drawSelectionBox,
+  drawGroupSelectionBox,
   drawDragPreview,
   isValidDropZone,
   getBoundingBox
@@ -58,6 +57,7 @@ const Canvas: React.FC = () => {
   const [ruledLineColor, setRuledLineColor] = useState('#d1d5db');
   
   const {
+    roomId,
     elements,
     users,
     currentUser,
@@ -96,7 +96,16 @@ const Canvas: React.FC = () => {
     },
   } = useSelector((state: RootState) => state.whiteboard);
 
-  const { emitCursor, emitElementCreated, emitElementUpdated, emitElementDeleted } = useSocket('room-1');
+  const { emitCursor, emitElementCreated, emitElementUpdated, emitElementDeleted } = useSocket(roomId || 'room-1');
+
+  // Unified board mutation dispatcher supporting both user drawing and AI generation
+  const handleApplyOp = useCallback((op: CanvasOp) => {
+    return applyOp(op, dispatch, {
+      emitElementCreated,
+      emitElementUpdated,
+      emitElementDeleted,
+    });
+  }, [dispatch, emitElementCreated, emitElementUpdated, emitElementDeleted]);
 
   // Clear laser pointer marks periodically
   useEffect(() => {
@@ -233,10 +242,9 @@ const Canvas: React.FC = () => {
       }
     });
 
-    // Delete intersecting elements
+    // Delete intersecting elements via applyOp
     elementsToDelete.forEach(id => {
-      dispatch(deleteElement(id));
-      emitElementDeleted(id);
+      handleApplyOp({ type: 'delete_element', elementId: id });
     });
   };
 
@@ -275,37 +283,66 @@ const Canvas: React.FC = () => {
     return null;
   };
 
-  // Handle element selection
-  const handleElementSelection = (point: Point, isMultiSelect: boolean = false) => {
+  // Handle element selection (supports grouping by commandId for full diagrams)
+  const handleElementSelection = (
+    point: Point,
+    isMultiSelect: boolean = false,
+    isSingleOverride: boolean = false
+  ): { selectedIds: string[]; wasElementClicked: boolean } => {
     const clickedElement = findElementAtPoint(point);
     
     if (clickedElement) {
+      // Determine target elements (if part of an AI diagram, select entire diagram unless Alt is held)
+      let targetIds = [clickedElement.id];
+      if (clickedElement.commandId && !isSingleOverride) {
+        const diagramElements = elements.filter(el => el.commandId === clickedElement.commandId);
+        if (diagramElements.length > 0) {
+          targetIds = diagramElements.map(el => el.id);
+        }
+      }
+
       if (isMultiSelect) {
         // Toggle selection for multi-select
-        const isAlreadySelected = selectedElements.includes(clickedElement.id);
-        if (isAlreadySelected) {
-          dispatch(setSelectedElements(selectedElements.filter(id => id !== clickedElement.id)));
+        const allAlreadySelected = targetIds.every(id => selectedElements.includes(id));
+        let nextSelected: string[];
+        if (allAlreadySelected) {
+          nextSelected = selectedElements.filter(id => !targetIds.includes(id));
         } else {
-          dispatch(setSelectedElements([...selectedElements, clickedElement.id]));
+          nextSelected = Array.from(new Set([...selectedElements, ...targetIds]));
         }
+        dispatch(setSelectedElements(nextSelected));
+        return { selectedIds: nextSelected, wasElementClicked: true };
       } else {
-        // Single selection
-        dispatch(setSelectedElements([clickedElement.id]));
+        // If clicking on an element already within selection, preserve selection for dragging
+        if (selectedElements.includes(clickedElement.id)) {
+          return { selectedIds: selectedElements, wasElementClicked: true };
+        }
+        // Otherwise, select the target group
+        dispatch(setSelectedElements(targetIds));
+        return { selectedIds: targetIds, wasElementClicked: true };
       }
-    } else if (!isMultiSelect) {
-      // Clear selection if clicking on empty space (and not multi-selecting)
-      dispatch(setSelectedElements([]));
+    } else {
+      if (!isMultiSelect) {
+        // Clear selection if clicking on empty space (and not multi-selecting)
+        dispatch(setSelectedElements([]));
+        return { selectedIds: [], wasElementClicked: false };
+      }
+      return { selectedIds: selectedElements, wasElementClicked: false };
     }
   };
 
   // Start dragging selected elements
-  const startDragging = (point: Point) => {
-    if (selectedElements.length > 0) {
+  const startDragging = (point: Point, explicitSelectedIds?: string[]) => {
+    const activeIds = explicitSelectedIds && explicitSelectedIds.length > 0
+      ? explicitSelectedIds
+      : selectedElements;
+
+    if (activeIds.length > 0) {
       dispatch(setIsDragging(true));
       dragStartPointRef.current = point;
       
       // Calculate offset from click point to first selected element
-      const firstSelectedElement = elements.find(el => el.id === selectedElements[0]);
+      const firstSelectedElement = elements.find(el => el.id === activeIds[0]);
       if (firstSelectedElement && firstSelectedElement.points.length > 0) {
         const elementBounds = getBoundingBox(firstSelectedElement.points);
         if (elementBounds) {
@@ -334,20 +371,25 @@ const Canvas: React.FC = () => {
       const deltaX = point.x - dragStartPointRef.current.x;
       const deltaY = point.y - dragStartPointRef.current.y;
       
-      // Validate drop zone
-      if (isValidDropZone(point, canvasWidth, canvasHeight)) {
+      // Validate drop zone and movement
+      if ((deltaX !== 0 || deltaY !== 0) && isValidDropZone(point, canvasWidth, canvasHeight)) {
         // Move selected elements
         dispatch(moveSelectedElements({ x: deltaX, y: deltaY }));
         
         // Emit updates for moved elements
         elements.forEach(element => {
-          if (element.isSelected) {
+          if (element.isSelected || selectedElements.includes(element.id)) {
             const updatedElement = {
               ...element,
               points: element.points.map(p => ({
                 x: p.x + deltaX,
                 y: p.y + deltaY
               })),
+              bounds: element.bounds ? {
+                ...element.bounds,
+                x: element.bounds.x + deltaX,
+                y: element.bounds.y + deltaY,
+              } : undefined,
               updated: Date.now()
             };
             emitElementUpdated(updatedElement);
@@ -398,19 +440,31 @@ const Canvas: React.FC = () => {
     // Draw elements
     elements.forEach((element) => {
       // Skip selected elements if dragging (they'll be drawn as preview)
-      if (isDragging && element.isSelected) return;
+      if (isDragging && (element.isSelected || selectedElements.includes(element.id))) return;
       
       drawElement(ctx, element, zoom, pan);
       
-      // Draw selection box for selected elements
-      if (element.isSelected && !isDragging) {
+      // Draw selection box for individual selected element when only 1 element is selected
+      if ((element.isSelected || selectedElements.includes(element.id)) && !isDragging && selectedElements.length <= 1) {
         drawSelectionBox(ctx, element, zoom, pan);
       }
     });
 
+    // Draw group selection box when multiple elements are selected and not dragging
+    if (!isDragging && selectedElements.length > 1) {
+      const selectedEls = elements.filter(el => el.isSelected || selectedElements.includes(el.id));
+      if (selectedEls.length > 1) {
+        drawGroupSelectionBox(ctx, selectedEls, zoom, pan);
+      }
+    }
+
     // Draw drag preview
     if (isDragging && dragPreview) {
-      drawDragPreview(ctx, elements, dragPreview, zoom, pan);
+      drawDragPreview(ctx, elements, dragPreview, zoom, pan, selectedElements);
+      const selectedEls = elements.filter(el => el.isSelected || selectedElements.includes(el.id));
+      if (selectedEls.length > 1) {
+        drawGroupSelectionBox(ctx, selectedEls, zoom, pan, dragPreview);
+      }
     }
 
     // Draw current drawing path with enhanced tool effects
@@ -577,12 +631,10 @@ const Canvas: React.FC = () => {
       updatePressure(touch, touch.identifier);
 
       if (selectedTool === 'select') {
-        const clickedElement = findElementAtPoint(point);
+        const { selectedIds, wasElementClicked } = handleElementSelection(point, false, false);
         
-        handleElementSelection(point, false);
-        
-        if (selectedElements.length > 0 || (clickedElement && !false)) {
-          startDragging(point);
+        if (wasElementClicked && selectedIds.length > 0) {
+          startDragging(point, selectedIds);
         } else {
           isTouchPanningRef.current = true;
         }
@@ -610,10 +662,9 @@ const Canvas: React.FC = () => {
             updated: Date.now(),
             userId: currentUser?.id || 'anonymous',
           };
-          dispatch(addElement(textElement));
+          handleApplyOp({ type: 'add_element', element: textElement });
           dispatch(setIsEditingText(true));
           dispatch(setEditingTextId(textElement.id));
-          emitElementCreated(textElement);
         }
       } else if (selectedTool === 'eraser') {
         handleEraserAction(snappedPoint, pressure);
@@ -763,8 +814,7 @@ const Canvas: React.FC = () => {
             isTemporary,
           };
 
-          dispatch(addElement(element));
-          emitElementCreated(element);
+          handleApplyOp({ type: 'add_element', element });
 
           if (isTemporary) {
             if (laserTimeoutRef.current) {
@@ -802,15 +852,16 @@ const Canvas: React.FC = () => {
 
     if (selectedTool === 'select') {
       const isMultiSelect = e.ctrlKey || e.metaKey;
+      const isSingleOverride = e.altKey;
       
-      // Handle element selection
-      handleElementSelection(point, isMultiSelect);
+      // Handle element selection (auto-groups AI diagrams unless Alt key is held)
+      const { selectedIds, wasElementClicked } = handleElementSelection(point, isMultiSelect, isSingleOverride);
       
-      // Start dragging if we have selected elements
-      if (selectedElements.length > 0 || (findElementAtPoint(point) && !isMultiSelect)) {
-        startDragging(point);
-      } else {
-        // Start panning if no elements selected
+      // Start dragging immediately if an element was clicked or elements are selected
+      if (wasElementClicked && selectedIds.length > 0) {
+        startDragging(point, selectedIds);
+      } else if (!wasElementClicked && selectedIds.length === 0) {
+        // Start panning if clicked on empty canvas
         isPanningRef.current = true;
         lastPanPointRef.current = { x: e.clientX, y: e.clientY };
       }
@@ -839,10 +890,9 @@ const Canvas: React.FC = () => {
           userId: currentUser?.id || 'anonymous',
         };
 
-        dispatch(addElement(textElement));
+        handleApplyOp({ type: 'add_element', element: textElement });
         dispatch(setIsEditingText(true));
         dispatch(setEditingTextId(textElement.id));
-        emitElementCreated(textElement);
       }
     } else if (selectedTool === 'eraser') {
       // Handle eraser action
@@ -929,8 +979,7 @@ const Canvas: React.FC = () => {
           isTemporary,
         };
 
-        dispatch(addElement(element));
-        emitElementCreated(element);
+        handleApplyOp({ type: 'add_element', element });
 
         // Set timeout for laser pointer cleanup
         if (isTemporary) {
