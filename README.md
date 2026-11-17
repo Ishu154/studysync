@@ -15,14 +15,15 @@
 </p>
 
 <p align="center">
+  <a href="https://studysync-igw2.onrender.com"><strong>🚀 Live Demo</strong></a> •
   <a href="#-overview">Overview</a> •
   <a href="#-key-features">Key Features</a> •
   <a href="#-studybot-ai-diagram-agent">StudyBot AI</a> •
   <a href="#-unified-diagram-group-dragging">Diagram Dragging</a> •
   <a href="#-smart-non-overlapping-diagram-placement">Smart Placement</a> •
   <a href="#-benchmark--evaluation-cloud-vs-local">Benchmark</a> •
-  <a href="#-deployment-guide">Deployment</a> •
-  <a href="#-installation--setup">Setup</a>
+  <a href="#-deployment-guide">Deployment</a>
+</p>
 </p>
 
 ---
